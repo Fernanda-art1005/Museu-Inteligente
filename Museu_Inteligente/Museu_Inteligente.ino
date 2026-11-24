@@ -1,6 +1,8 @@
 #include <Wire.h>
 
+// Pinos do Arduino Uno ligados ao PIR, LED, buzzer, ultrassônico e botão.
 const byte pir = 6, led = 7, buzzer = 8, trig = 9, echo = 10, botao = 4;
+// O pulso de retorno dura cerca de 58 microssegundos por centímetro.
 const unsigned long limiteUs = 30UL * 58;
 const unsigned long tempoLuz = 3000;
 
@@ -10,6 +12,7 @@ int leituraBotao = HIGH, botaoEstavel = HIGH;
 int telaAtual = -1;
 unsigned long mudouBotao = 0, ultimaMedicao = 0, ultimoMovimento = 0;
 
+// Envia comandos e caracteres ao LCD pelo módulo I2C no endereço 0x27.
 void expansor(byte valor) {
   Wire.beginTransmission(0x27);
   Wire.write(valor | 0x08);
@@ -37,6 +40,7 @@ void linhaLCD(byte endereco, const char *texto) {
   }
 }
 
+// Atualiza o LCD somente quando a mensagem muda.
 void mostrar(int tela, const char *linha1, const char *linha2) {
   if (tela == telaAtual) return;
   telaAtual = tela;
@@ -50,6 +54,7 @@ void setup() {
   pinMode(buzzer, OUTPUT);
   pinMode(trig, OUTPUT);
   pinMode(echo, INPUT);
+  // Com o pull-up interno, o botão pressionado liga D4 ao GND.
   pinMode(botao, INPUT_PULLUP);
 
   Wire.begin();
@@ -68,6 +73,7 @@ void setup() {
   mostrar(6, "Mona Lisa", "Obra protegida");
 }
 
+// Espera a leitura do botão estabilizar antes de alternar a proteção.
 void atualizarBotao(unsigned long agora) {
   int leitura = digitalRead(botao);
   if (leitura != leituraBotao) {
@@ -83,6 +89,7 @@ void atualizarBotao(unsigned long agora) {
   }
 }
 
+// O PIR acende o LED. Após o último sinal de movimento, a luz dura mais 3 s.
 void atualizarRecepcao(unsigned long agora) {
   if (digitalRead(pir) == HIGH) {
     ultimoMovimento = agora;
@@ -92,6 +99,7 @@ void atualizarRecepcao(unsigned long agora) {
   digitalWrite(led, luz ? HIGH : LOW);
 }
 
+// Mede a distância a cada 70 ms. Sem eco, a área é considerada livre.
 void medirDistancia(unsigned long agora) {
   if (agora - ultimaMedicao < 70) return;
   ultimaMedicao = agora;
@@ -108,10 +116,12 @@ void loop() {
   atualizarRecepcao(agora);
   medirDistancia(agora);
 
+  // O botão controla a proteção da obra. A recepção continua funcionando.
   if (!protecao) {
     mostrar(7, "Mona Lisa", "Protecao off");
     return;
   }
+  // Ao afastar o objeto, o buzzer para e o LCD volta à tela de repouso.
   if (!perto) {
     if (alarme) {
       noTone(buzzer);
@@ -121,6 +131,7 @@ void loop() {
     return;
   }
 
+  // O buzzer começa a tocar assim que o sensor detecta algo dentro do limite.
   if (alarme) return;
   alarme = true;
   tone(buzzer, 1800);
